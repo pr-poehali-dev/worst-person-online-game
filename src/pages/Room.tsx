@@ -9,7 +9,6 @@ import Icon from '@/components/ui/icon';
 import { Room as RoomType, Player, Submission } from '@/types/game';
 import { getRandomCondition, getRandomAction, getRandomCards, actionCards } from '@/data/gameCards';
 import { toast } from 'sonner';
-import { roomService } from '@/services/roomService';
 
 const Room = () => {
   const { code } = useParams();
@@ -22,37 +21,20 @@ const Room = () => {
   const [votedFor, setVotedFor] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!code) {
-      navigate('/');
-      return;
-    }
+    const storedRoom = localStorage.getItem('currentRoom');
+    const storedPlayer = localStorage.getItem('currentPlayer');
 
-    const loadRoom = async () => {
-      try {
-        const storedPlayer = localStorage.getItem('currentPlayer');
-        if (!storedPlayer) {
-          navigate('/');
-          return;
-        }
-
-        const roomData = await roomService.getRoom(code);
-        setRoom(roomData);
-        setCurrentPlayer(JSON.parse(storedPlayer));
-        
-        if (roomData.phase === 'playing') {
-          setMyCards(getRandomCards(5, actionCards));
-        }
-      } catch (error) {
-        toast.error('Комната не найдена');
-        navigate('/');
+    if (storedRoom && storedPlayer) {
+      setRoom(JSON.parse(storedRoom));
+      setCurrentPlayer(JSON.parse(storedPlayer));
+      
+      if (JSON.parse(storedRoom).phase === 'playing') {
+        setMyCards(getRandomCards(5, actionCards));
       }
-    };
-
-    loadRoom();
-
-    const interval = setInterval(loadRoom, 2000);
-    return () => clearInterval(interval);
-  }, [code, navigate]);
+    } else {
+      navigate('/');
+    }
+  }, [navigate]);
 
   useEffect(() => {
     if (room?.phase === 'playing' && timer > 0) {
@@ -63,8 +45,8 @@ const Room = () => {
     }
   }, [room?.phase, timer]);
 
-  const handleStartGame = async () => {
-    if (!room || !currentPlayer || !code) return;
+  const handleStartGame = () => {
+    if (!room || !currentPlayer) return;
 
     const condition = getRandomCondition();
     const updatedRoom = {
@@ -75,18 +57,14 @@ const Room = () => {
       submissions: []
     };
 
-    try {
-      await roomService.updateRoom(code, updatedRoom);
-      setRoom(updatedRoom);
-      setMyCards(getRandomCards(5, actionCards));
-      toast.success('Игра начинается!');
-    } catch (error) {
-      toast.error('Не удалось начать игру');
-    }
+    setRoom(updatedRoom);
+    localStorage.setItem('currentRoom', JSON.stringify(updatedRoom));
+    setMyCards(getRandomCards(5, actionCards));
+    toast.success('Игра начинается!');
   };
 
-  const handleSelectCard = async (card: string) => {
-    if (!room || !currentPlayer || selectedCard || !code) return;
+  const handleSelectCard = (card: string) => {
+    if (!room || !currentPlayer || selectedCard) return;
     
     setSelectedCard(card);
     
@@ -100,18 +78,13 @@ const Room = () => {
       submissions: [...room.submissions, submission]
     };
 
-    try {
-      await roomService.updateRoom(code, updatedRoom);
-      setRoom(updatedRoom);
-      toast.success('Карта сыграна!');
-    } catch (error) {
-      toast.error('Не удалось сыграть карту');
-      setSelectedCard(null);
-    }
+    setRoom(updatedRoom);
+    localStorage.setItem('currentRoom', JSON.stringify(updatedRoom));
+    toast.success('Карта сыграна!');
   };
 
-  const handleVote = async (playerId: string) => {
-    if (!room || votedFor || !code) return;
+  const handleVote = (playerId: string) => {
+    if (!room || votedFor) return;
 
     setVotedFor(playerId);
     
@@ -128,17 +101,12 @@ const Room = () => {
       submissions: []
     };
 
-    try {
-      await roomService.updateRoom(code, updatedRoom);
-      setRoom(updatedRoom);
-      setSelectedCard(null);
-      setVotedFor(null);
-      setTimer(15);
-      setMyCards(getRandomCards(5, actionCards));
-    } catch (error) {
-      toast.error('Не удалось проголосовать');
-      setVotedFor(null);
-    }
+    setRoom(updatedRoom);
+    localStorage.setItem('currentRoom', JSON.stringify(updatedRoom));
+    setSelectedCard(null);
+    setVotedFor(null);
+    setTimer(15);
+    setMyCards(getRandomCards(5, actionCards));
   };
 
   const handleCopyCode = () => {
@@ -217,11 +185,11 @@ const Room = () => {
                 {isHost && (
                   <Button 
                     onClick={handleStartGame}
-                    disabled={room.players.length < 2}
+                    disabled={room.players.length < 3}
                     className="w-full h-16 text-xl font-bold bg-gradient-to-r from-primary via-secondary to-accent"
                   >
                     <Icon name="Play" size={28} className="mr-2" />
-                    Начать игру {room.players.length < 2 && `(нужно минимум 2 игрока)`}
+                    Начать игру {room.players.length < 3 && `(нужно минимум 3 игрока)`}
                   </Button>
                 )}
 
