@@ -9,6 +9,7 @@ import Icon from '@/components/ui/icon';
 import { Room as RoomType, Player, Submission } from '@/types/game';
 import { getRandomCondition, getRandomAction, getRandomCards, actionCards } from '@/data/gameCards';
 import { toast } from 'sonner';
+import { roomService } from '@/services/roomService';
 
 const Room = () => {
   const { code } = useParams();
@@ -26,20 +27,31 @@ const Room = () => {
       return;
     }
 
-    const storedRoomByCode = localStorage.getItem(`room_${code}`);
-    const storedPlayer = localStorage.getItem('currentPlayer');
+    const loadRoom = async () => {
+      try {
+        const storedPlayer = localStorage.getItem('currentPlayer');
+        if (!storedPlayer) {
+          navigate('/');
+          return;
+        }
 
-    if (storedRoomByCode && storedPlayer) {
-      const parsedRoom = JSON.parse(storedRoomByCode);
-      setRoom(parsedRoom);
-      setCurrentPlayer(JSON.parse(storedPlayer));
-      
-      if (parsedRoom.phase === 'playing') {
-        setMyCards(getRandomCards(5, actionCards));
+        const roomData = await roomService.getRoom(code);
+        setRoom(roomData);
+        setCurrentPlayer(JSON.parse(storedPlayer));
+        
+        if (roomData.phase === 'playing') {
+          setMyCards(getRandomCards(5, actionCards));
+        }
+      } catch (error) {
+        toast.error('Комната не найдена');
+        navigate('/');
       }
-    } else {
-      navigate('/');
-    }
+    };
+
+    loadRoom();
+
+    const interval = setInterval(loadRoom, 2000);
+    return () => clearInterval(interval);
   }, [code, navigate]);
 
   useEffect(() => {
@@ -51,8 +63,8 @@ const Room = () => {
     }
   }, [room?.phase, timer]);
 
-  const handleStartGame = () => {
-    if (!room || !currentPlayer) return;
+  const handleStartGame = async () => {
+    if (!room || !currentPlayer || !code) return;
 
     const condition = getRandomCondition();
     const updatedRoom = {
@@ -63,16 +75,18 @@ const Room = () => {
       submissions: []
     };
 
-    setRoom(updatedRoom);
-    if (code) {
-      localStorage.setItem(`room_${code}`, JSON.stringify(updatedRoom));
+    try {
+      await roomService.updateRoom(code, updatedRoom);
+      setRoom(updatedRoom);
+      setMyCards(getRandomCards(5, actionCards));
+      toast.success('Игра начинается!');
+    } catch (error) {
+      toast.error('Не удалось начать игру');
     }
-    setMyCards(getRandomCards(5, actionCards));
-    toast.success('Игра начинается!');
   };
 
-  const handleSelectCard = (card: string) => {
-    if (!room || !currentPlayer || selectedCard) return;
+  const handleSelectCard = async (card: string) => {
+    if (!room || !currentPlayer || selectedCard || !code) return;
     
     setSelectedCard(card);
     
@@ -86,15 +100,18 @@ const Room = () => {
       submissions: [...room.submissions, submission]
     };
 
-    setRoom(updatedRoom);
-    if (code) {
-      localStorage.setItem(`room_${code}`, JSON.stringify(updatedRoom));
+    try {
+      await roomService.updateRoom(code, updatedRoom);
+      setRoom(updatedRoom);
+      toast.success('Карта сыграна!');
+    } catch (error) {
+      toast.error('Не удалось сыграть карту');
+      setSelectedCard(null);
     }
-    toast.success('Карта сыграна!');
   };
 
-  const handleVote = (playerId: string) => {
-    if (!room || votedFor) return;
+  const handleVote = async (playerId: string) => {
+    if (!room || votedFor || !code) return;
 
     setVotedFor(playerId);
     
@@ -111,14 +128,17 @@ const Room = () => {
       submissions: []
     };
 
-    setRoom(updatedRoom);
-    if (code) {
-      localStorage.setItem(`room_${code}`, JSON.stringify(updatedRoom));
+    try {
+      await roomService.updateRoom(code, updatedRoom);
+      setRoom(updatedRoom);
+      setSelectedCard(null);
+      setVotedFor(null);
+      setTimer(15);
+      setMyCards(getRandomCards(5, actionCards));
+    } catch (error) {
+      toast.error('Не удалось проголосовать');
+      setVotedFor(null);
     }
-    setSelectedCard(null);
-    setVotedFor(null);
-    setTimer(15);
-    setMyCards(getRandomCards(5, actionCards));
   };
 
   const handleCopyCode = () => {

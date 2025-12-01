@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Icon from '@/components/ui/icon';
 import { GameMode } from '@/types/game';
 import { toast } from 'sonner';
+import { roomService } from '@/services/roomService';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -23,39 +24,46 @@ const Index = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
     if (!playerName.trim()) {
       toast.error('Введите ваше имя');
       return;
     }
 
-    const code = generateRoomCode();
-    const room = {
-      code,
-      hostId: 'player-1',
-      players: [{
+    try {
+      const code = generateRoomCode();
+      const player = {
         id: 'player-1',
         name: playerName,
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${playerName}`,
         score: 0,
         isReady: false
-      }],
-      gameMode,
-      maxScore: parseInt(maxScore),
-      currentRound: 0,
-      phase: 'lobby' as const,
-      submissions: []
-    };
+      };
 
-    localStorage.setItem('currentRoom', JSON.stringify(room));
-    localStorage.setItem(`room_${code}`, JSON.stringify(room));
-    localStorage.setItem('currentPlayer', JSON.stringify(room.players[0]));
-    
-    setIsCreateDialogOpen(false);
-    navigate(`/room/${code}`);
+      const room = {
+        code,
+        hostId: 'player-1',
+        players: [player],
+        gameMode,
+        maxScore: parseInt(maxScore),
+        currentRound: 0,
+        phase: 'lobby' as const,
+        submissions: []
+      };
+
+      await roomService.createRoom(code, room);
+      localStorage.setItem('currentPlayer', JSON.stringify(player));
+      localStorage.setItem('roomCode', code);
+      
+      setIsCreateDialogOpen(false);
+      navigate(`/room/${code}`);
+      toast.success(`Комната создана! Код: ${code}`);
+    } catch (error) {
+      toast.error('Не удалось создать комнату');
+    }
   };
 
-  const handleJoinRoom = () => {
+  const handleJoinRoom = async () => {
     if (!playerName.trim()) {
       toast.error('Введите ваше имя');
       return;
@@ -66,27 +74,26 @@ const Index = () => {
       return;
     }
 
-    const storedRoom = localStorage.getItem(`room_${roomCode.toUpperCase()}`);
-    
-    if (!storedRoom) {
+    try {
+      const room = await roomService.getRoom(roomCode.toUpperCase());
+      
+      const newPlayer = {
+        id: `player-${room.players.length + 1}`,
+        name: playerName,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${playerName}`,
+        score: 0,
+        isReady: false
+      };
+
+      await roomService.joinRoom(roomCode.toUpperCase(), newPlayer);
+      localStorage.setItem('currentPlayer', JSON.stringify(newPlayer));
+      localStorage.setItem('roomCode', roomCode.toUpperCase());
+      
+      navigate(`/room/${roomCode.toUpperCase()}`);
+      toast.success('Успешно присоединились!');
+    } catch (error) {
       setRoomCodeError('Комната не найдена');
-      return;
     }
-
-    const room = JSON.parse(storedRoom);
-    const newPlayer = {
-      id: `player-${room.players.length + 1}`,
-      name: playerName,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${playerName}`,
-      score: 0,
-      isReady: false
-    };
-
-    room.players.push(newPlayer);
-    localStorage.setItem(`room_${roomCode.toUpperCase()}`, JSON.stringify(room));
-    localStorage.setItem('currentPlayer', JSON.stringify(newPlayer));
-    
-    navigate(`/room/${roomCode.toUpperCase()}`);
   };
 
   return (

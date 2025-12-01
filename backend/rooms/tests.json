@@ -1,0 +1,46 @@
+{
+  "tests": [
+    {
+      "name": "Create room",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "create",
+        "code": "ABC123",
+        "room": {
+          "code": "ABC123",
+          "hostId": "player-1",
+          "players": [{"id": "player-1", "name": "Test", "score": 0}],
+          "gameMode": "classic",
+          "maxScore": 15,
+          "phase": "lobby"
+        }
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get room",
+      "method": "GET",
+      "path": "/?code=ABC123",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "room": {}
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Room not found",
+      "method": "GET",
+      "path": "/?code=NOTFOUND",
+      "expectedStatus": 404,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
