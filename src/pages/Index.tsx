@@ -48,6 +48,7 @@ const Index = () => {
     };
 
     localStorage.setItem('currentRoom', JSON.stringify(room));
+    localStorage.setItem(`room_${code}`, JSON.stringify(room));
     localStorage.setItem('currentPlayer', JSON.stringify(room.players[0]));
     
     setIsCreateDialogOpen(false);

@@ -21,20 +21,26 @@ const Room = () => {
   const [votedFor, setVotedFor] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedRoom = localStorage.getItem('currentRoom');
+    if (!code) {
+      navigate('/');
+      return;
+    }
+
+    const storedRoomByCode = localStorage.getItem(`room_${code}`);
     const storedPlayer = localStorage.getItem('currentPlayer');
 
-    if (storedRoom && storedPlayer) {
-      setRoom(JSON.parse(storedRoom));
+    if (storedRoomByCode && storedPlayer) {
+      const parsedRoom = JSON.parse(storedRoomByCode);
+      setRoom(parsedRoom);
       setCurrentPlayer(JSON.parse(storedPlayer));
       
-      if (JSON.parse(storedRoom).phase === 'playing') {
+      if (parsedRoom.phase === 'playing') {
         setMyCards(getRandomCards(5, actionCards));
       }
     } else {
       navigate('/');
     }
-  }, [navigate]);
+  }, [code, navigate]);
 
   useEffect(() => {
     if (room?.phase === 'playing' && timer > 0) {
@@ -58,7 +64,9 @@ const Room = () => {
     };
 
     setRoom(updatedRoom);
-    localStorage.setItem('currentRoom', JSON.stringify(updatedRoom));
+    if (code) {
+      localStorage.setItem(`room_${code}`, JSON.stringify(updatedRoom));
+    }
     setMyCards(getRandomCards(5, actionCards));
     toast.success('Игра начинается!');
   };
@@ -79,7 +87,9 @@ const Room = () => {
     };
 
     setRoom(updatedRoom);
-    localStorage.setItem('currentRoom', JSON.stringify(updatedRoom));
+    if (code) {
+      localStorage.setItem(`room_${code}`, JSON.stringify(updatedRoom));
+    }
     toast.success('Карта сыграна!');
   };
 
@@ -102,7 +112,9 @@ const Room = () => {
     };
 
     setRoom(updatedRoom);
-    localStorage.setItem('currentRoom', JSON.stringify(updatedRoom));
+    if (code) {
+      localStorage.setItem(`room_${code}`, JSON.stringify(updatedRoom));
+    }
     setSelectedCard(null);
     setVotedFor(null);
     setTimer(15);
@@ -185,11 +197,11 @@ const Room = () => {
                 {isHost && (
                   <Button 
                     onClick={handleStartGame}
-                    disabled={room.players.length < 3}
+                    disabled={room.players.length < 2}
                     className="w-full h-16 text-xl font-bold bg-gradient-to-r from-primary via-secondary to-accent"
                   >
                     <Icon name="Play" size={28} className="mr-2" />
-                    Начать игру {room.players.length < 3 && `(нужно минимум 3 игрока)`}
+                    Начать игру {room.players.length < 2 && `(нужно минимум 2 игрока)`}
                   </Button>
                 )}
 
